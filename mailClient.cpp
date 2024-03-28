@@ -8,11 +8,13 @@
 #include <string>
 #include <sstream>
 #include <ctime>
+#include <mimetic/mimetic.h>
 
 
 #define bufferSize 1024
 
 using namespace std;
+using namespace mimetic;
 
 struct mailContent
 {
@@ -218,9 +220,132 @@ void smtp()
     close(client_fd);
 }
 
+vector<string> readDataPOP3(string a, int valRead)
+{
+    vector<string> parts;
+    int start = 0;
+    while (1)
+    {
+        int pos = a.find("\r\n\r\n", start);
+        string tmp1 = a.substr(start, pos - start);
+        // cout << tmp1 << endl << "==============\n";
+        if (tmp1 == ".\r\n")
+            break;
+        parts.push_back(tmp1);
+        // string tmp = a.substr(pos - start + 4);
+        start = pos + 4;
+    }
+    return parts;
+}
+
 void pop3()
 {
-    return;
+    int client_fd;
+    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        cout << "Create socket failed \n";
+        return;
+    }
+
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(3335);
+    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    bool status = 1;
+    // =======================================
+    if (connect(client_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+    {
+        cout << "Connection failed \n";
+        close(client_fd);
+        return;
+    }
+    else
+    {
+        status = serverReply(client_fd);
+        if (status == 0)
+            return;
+    }
+
+    // =======================================
+    // Send CAPA
+    string sendMsg = "CAPA\r\n";
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    // =======================================
+    // Send User info
+    cout << "Going here\n";
+    sendMsg = "USER khoi2@hcmus.vn\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+    cout << "End here\n";
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    // =======================================
+    // Send User password
+    sendMsg = "PASS 222\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    // =======================================
+    // Send STAT and LIST; DOC CHO NAY CAN THAN
+    sendMsg = "STAT\r\n"; // Read from config file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    sendMsg = "LIST\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    // =======================================
+    // Send UIDL
+    sendMsg = "UIDL\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    status = serverReply(client_fd);
+    if (status == 0)
+        return;
+
+    // =======================================
+    // Send Request to get mail
+    sendMsg = "RETR 1\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+    // =======================================
+    // Receive new mail
+    char buffer[bufferSize * 5];
+    // string buffer;
+    int valRead;
+
+    if ((valRead = recv(client_fd, buffer, sizeof(buffer), 0)) < 0)
+    {
+        cout << "Fail to recv from server\n";
+        return;
+    }
+    else
+    {
+        vector<string> parts = readDataPOP3(buffer, valRead);
+        for (int i = 0; i < parts.size(); i++)
+        {
+            cout << parts[i] << endl;
+            cout << "++++++++++++++\n";
+        }
+    }
+
 }
 
 int main()
@@ -228,20 +353,22 @@ int main()
     // Load file config
 
     // UI
-    int choice = choiceUI();
-    cout << "======================\n";
-
-    if (choice == 1)
+    int choice = 0;
+    do
     {
-        smtp();
+        choice = choiceUI();
         cout << "======================\n";
+
+        if (choice == 1)
+        {
+            smtp();
+            cout << "======================\n";
+        }
+        else if (choice == 2)
+        {
+            pop3();
+            cout << "======================\n";
+        }
     }
-    else if (choice == 2)
-    {
-        pop3();
-    }
-    else
-    {
-        return 0;
-    }
+    while (choice != 0);
 }
