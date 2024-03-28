@@ -82,7 +82,7 @@ string getString()
 mailContent writeMail()
 {
     mailContent a;
-    a.from = "khoi@hcmus.vn"; // Doc file config
+    a.from = "khoi <khoi@hcmus.vn>"; // Doc file config
     cout << "Day la thong tin soan mail (nhan Enter neu khong muon nhap gi hoac muon ket thuc viec nhap)\n";
     cin.ignore();
     cout << "To: ";
@@ -161,6 +161,31 @@ bool sendData(mailContent a, int client_fd)
     return 1;
 }
 
+// bool sendDataWithMIME(mailContent a, int client_fd)
+// {
+//     bool status;
+
+//     string sendMsg = "DATA\r\n";
+//     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+//     status = serverReply(client_fd);
+//     if (status == 0)
+//         return 0;
+    
+//     MimeEntity me;
+
+//     me.header().from(a.from);
+//     me.header().to(a.to);
+//     me.header().cc(a.cc);
+//     me.header().bcc(a.bcc);
+//     me.header().subject(a.subject);
+
+//     me.body().assign(a.content);
+
+//     cout << me << endl;
+
+//     return 1;
+// }
+
 void smtp()
 {
     int client_fd;
@@ -208,6 +233,7 @@ void smtp()
         return;
     // Send Data
     cout << sendData(a, client_fd) << endl;
+    // cout << sendDataWithMIME(a, client_fd) << endl;
 
     // =======================================
     // Quit
