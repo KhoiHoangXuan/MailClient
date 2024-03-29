@@ -8,7 +8,9 @@
 #include <string>
 #include <sstream>
 #include <ctime>
+#include <fstream>
 #include <mimetic/mimetic.h>
+#include <mimetic/mimeentity.h>
 
 
 #define bufferSize 1024
@@ -26,6 +28,35 @@ struct mailContent
     string content;
     // Them file
 };
+
+struct config
+{
+    string uname;
+    string pass;
+    string mailServer;
+    int smtp;
+    int pop3;
+    int autoLoad;
+};
+
+config readConfig()
+{
+    config con;
+    fstream file;
+    file.open("config.txt", ios::in);
+    getline(file, con.uname);
+    getline(file, con.pass);
+    getline(file, con.mailServer);
+    string tmp;
+    getline(file, tmp);
+    con.smtp = stoi(tmp);
+    getline(file, tmp);
+    con.pop3 = stoi(tmp);
+    getline(file, tmp);
+    con.autoLoad = stoi(tmp);
+    file.close();
+    return con;
+}
 
 int choiceUI()
 {
@@ -79,10 +110,10 @@ string getString()
     return a;
 }
 
-mailContent writeMail()
+mailContent writeMail(config con)
 {
     mailContent a;
-    a.from = "khoi <khoi@hcmus.vn>"; // Doc file config
+    a.from = con.uname; // Doc file config
     cout << "Day la thong tin soan mail (nhan Enter neu khong muon nhap gi hoac muon ket thuc viec nhap)\n";
     cin.ignore();
     cout << "To: ";
@@ -96,7 +127,37 @@ mailContent writeMail()
     cout << "Content: ";
     a.content = getString();
     // Gui kem file
+    string fileChoice;
+    // cin.ignore();
+    cout << "Ban co muon dinh kem file khong (1. Co | 0. Khong): \n";
+    // getline(cin, fileChoice);
+    // cin.ignore();
+    cin >> fileChoice;
+    cin.ignore();
+    if (fileChoice == "1")
+    {
+        string fileName;
+        cout << "Nhap ten file: ";
+        fileName = getString();
+        // cin.ignore();
+        string filePath;
+        cout << "Nhap duong dan cua file: ";
+        filePath = getString();
+        // cin.ignore();
 
+        string fileData;
+        fstream file;
+        file.open(filePath, ios::in);
+        while (!file.eof())
+        {
+            string tmp;
+            getline(file, tmp);
+            fileData += tmp + '\n';
+        }
+        file.close();
+        cout << "Data: \n";
+        cout << fileData << endl;
+    }
     return a;
 }
 
@@ -173,6 +234,7 @@ bool sendData(mailContent a, int client_fd)
     
 //     MimeEntity me;
 
+//     cout << "Im here\n";
 //     me.header().from(a.from);
 //     me.header().to(a.to);
 //     me.header().cc(a.cc);
@@ -186,7 +248,7 @@ bool sendData(mailContent a, int client_fd)
 //     return 1;
 // }
 
-void smtp()
+void smtp(config con)
 {
     int client_fd;
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -197,8 +259,9 @@ void smtp()
 
     struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(2225);
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr.sin_port = htons(con.smtp);
+    serv_addr.sin_addr.s_addr = inet_addr(con.mailServer.c_str());
+    cout << con.mailServer.c_str() << endl;
 
     bool status = 1;
 
@@ -227,7 +290,7 @@ void smtp()
 
     // =======================================
     // Enter mail
-    mailContent a = writeMail();
+    mailContent a = writeMail(con);
     status = sendInitData(a, client_fd);
     if (status == 0)
         return;
@@ -377,6 +440,8 @@ void pop3()
 int main()
 {
     // Load file config
+    config con;
+    con = readConfig();
 
     // UI
     int choice = 0;
@@ -387,7 +452,7 @@ int main()
 
         if (choice == 1)
         {
-            smtp();
+            smtp(con);
             cout << "======================\n";
         }
         else if (choice == 2)
