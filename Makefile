@@ -2,6 +2,6 @@ CC = g++
 
 all: prog
 prog:
-	$(CC) mailClient.cpp -o mailClient
+	$(CC) -o mailClient mailClient.cpp -I/mimetic -L/mimetic -lmimetic
 clean:
 	rm -f mailClient
