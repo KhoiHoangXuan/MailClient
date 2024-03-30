@@ -11,6 +11,7 @@
 #include <fstream>
 #include <mimetic/mimetic.h>
 #include <mimetic/mimeentity.h>
+#include <mimetic/utils.h>
 
 
 #define bufferSize 1024
@@ -27,6 +28,9 @@ struct mailContent
     string subject;
     string content;
     // Them file
+    string fileName;
+    string filePath;
+    string fileData;
 };
 
 struct config
@@ -136,27 +140,26 @@ mailContent writeMail(config con)
     cin.ignore();
     if (fileChoice == "1")
     {
-        string fileName;
+        // string fileName;
         cout << "Nhap ten file: ";
-        fileName = getString();
+        a.fileName = getString();
         // cin.ignore();
-        string filePath;
         cout << "Nhap duong dan cua file: ";
-        filePath = getString();
+        a.filePath = getString();
         // cin.ignore();
 
-        string fileData;
-        fstream file;
-        file.open(filePath, ios::in);
-        while (!file.eof())
-        {
-            string tmp;
-            getline(file, tmp);
-            fileData += tmp + '\n';
-        }
-        file.close();
-        cout << "Data: \n";
-        cout << fileData << endl;
+        // // string fileData;
+        // fstream file;
+        // file.open(filePath, ios::in);
+        // while (!file.eof())
+        // {
+        //     string tmp;
+        //     getline(file, tmp);
+        //     a.fileData += tmp + '\n';
+        // }
+        // file.close();
+        // cout << "Data: \n";
+        // cout << a.fileData << endl;
     }
     return a;
 }
@@ -177,6 +180,24 @@ bool sendInitData(mailContent a, int client_fd)
     status = serverReply(client_fd);
     if (status == 0)
         return 0;
+
+    if (a.cc != "")
+    {
+        sendMsg = "RCPT TO: <" + a.cc + ">\r\n";
+        send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+        status = serverReply(client_fd);
+        if (status == 0)
+            return 0;
+    }
+
+    if (a.bcc != "")
+    {
+        sendMsg = "RCPT TO: <" + a.bcc + ">\r\n";
+        send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+        status = serverReply(client_fd);
+        if (status == 0)
+            return 0;
+    }
 
     return 1;
 }
@@ -204,14 +225,27 @@ bool sendData(mailContent a, int client_fd)
     dataa += "To: <" + a.to + ">\r\n";
     dataa += "Subject: " + a.subject + "\r\n";
     dataa += "Date: " + getTime() + "\r\n";
-    // MIME version
+
+    // Content part
     dataa += "Content-Type: multipart/alternative;\r\n";
     dataa += "Content-Language: en-us\r\n\r\n";
     dataa += "Content-Type: text/plain;\r\n";
     // dataa += "charset="us-ascii""
     dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
 
-    dataa += a.content + "\r\n\r\n" + ".\r\n";
+    dataa += a.content + "\r\n\r\n";
+
+    // File attachment part
+    if (a.fileName != "")
+    {
+        dataa += "Content-Type: text/plain; charset: UTF-8; name=" + a.fileName + "\r\n";
+        dataa += "Content-Disposition: attachment; filename=" + a.fileName + "\r\n";
+        dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
+        dataa += a.fileData + "\r\n\r\n";
+    }
+
+
+    dataa += ".\r\n";
 
     sendMsg = dataa;
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
@@ -222,31 +256,87 @@ bool sendData(mailContent a, int client_fd)
     return 1;
 }
 
-// bool sendDataWithMIME(mailContent a, int client_fd)
-// {
-//     bool status;
+class MyMimeEntity : public MimeEntity {
+public:
+    string toMimeString() {
+        stringstream ss;
+        this->write(ss);
+        return ss.str();
+    }
+};
 
-//     string sendMsg = "DATA\r\n";
-//     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-//     status = serverReply(client_fd);
-//     if (status == 0)
-//         return 0;
+MyMimeEntity attachFile(string fileName, string filePath)
+{
+    MyMimeEntity me;
+
+    fstream file;
+    file.open(filePath, ios::in);
+    if (!file)
+    {
+        cout << "Error to open file\n";
+        file.close();
+        return me;
+    }
+
+
+    stringstream ss;
+    ss << file.rdbuf();
+    me.body().assign(ss.str());
+    me.header().contentType().set("text");
+    me.header().contentType().subtype("plain");
+    me.header().contentType().param("name", fileName);
+    me.header().contentType().param("charset", "us-ascii");
+    me.header().contentDisposition("attachment");
+    me.header().contentDisposition().param("filename", fileName);
+    file.close();
+    return me;
+}
+
+bool sendDataWithMIME(mailContent a, int client_fd)
+{
+    bool status;
+
+    string sendMsg = "DATA\r\n";
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+    status = serverReply(client_fd);
+    if (status == 0)
+        return 0;
     
-//     MimeEntity me;
+    MyMimeEntity me;
 
-//     cout << "Im here\n";
-//     me.header().from(a.from);
-//     me.header().to(a.to);
-//     me.header().cc(a.cc);
-//     me.header().bcc(a.bcc);
-//     me.header().subject(a.subject);
+    cout << "Im here\n";
+    me.header().from(a.from);
+    me.header().to(a.to);
+    me.header().cc(a.cc);
+    me.header().bcc(a.bcc);
+    me.header().subject(a.subject);
+    // me.header().contentType().param("boundary", "-----");
 
-//     me.body().assign(a.content);
+    me.body().assign(a.content);
+    me.header().contentType().set("text");
+    me.header().contentType().subtype("plain");
+    me.header().contentType().param("charset", "UTF-8");
+    me.header().contentType().param("format", "flowed");
+    me.header().contentTransferEncoding("7bit");
+    
+    // Attach file
+    MyMimeEntity me2;
+    if (a.fileName != "")
+    {
+        me2 = attachFile(a.fileName, a.filePath);
+    }
 
-//     cout << me << endl;
+    stringstream ss;
+    // ss << me.header();
+    sendMsg = me.toMimeString() + "\r\n\r\n";
+    sendMsg += me2.toMimeString() + "\r\n\r\n";
+    sendMsg += ".\r\n";
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
-//     return 1;
-// }
+    cout << me << endl;
+
+    return 1;
+}
 
 void smtp(config con)
 {
@@ -295,8 +385,8 @@ void smtp(config con)
     if (status == 0)
         return;
     // Send Data
-    cout << sendData(a, client_fd) << endl;
-    // cout << sendDataWithMIME(a, client_fd) << endl;
+    // cout << sendData(a, client_fd) << endl;
+    cout << sendDataWithMIME(a, client_fd) << endl;
 
     // =======================================
     // Quit
