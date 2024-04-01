@@ -221,26 +221,26 @@ bool sendData(mailContent a, int client_fd)
         return 0;
     
     string dataa = "";
+    dataa += "Date: " + getTime() + "\r\n";
     dataa += "From: <" + a.from + ">\r\n";
     dataa += "To: <" + a.to + ">\r\n";
     dataa += "Subject: " + a.subject + "\r\n";
-    dataa += "Date: " + getTime() + "\r\n";
 
     // Content part
-    dataa += "Content-Type: multipart/alternative;\r\n";
-    dataa += "Content-Language: en-us\r\n\r\n";
-    dataa += "Content-Type: text/plain;\r\n";
+    // dataa += "Content-Type: multipart/alternative;\r\n";
+    // dataa += "Content-Language: en-us\r\n\r\n";
+    // dataa += "Content-Type: text/plain;\r\n";
     // dataa += "charset="us-ascii""
-    dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
+    // dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
 
     dataa += a.content + "\r\n\r\n";
 
     // File attachment part
     if (a.fileName != "")
     {
-        dataa += "Content-Type: text/plain; charset: UTF-8; name=" + a.fileName + "\r\n";
-        dataa += "Content-Disposition: attachment; filename=" + a.fileName + "\r\n";
-        dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
+        // dataa += "Content-Type: text/plain; charset: UTF-8; name=" + a.fileName + "\r\n";
+        // dataa += "Content-Disposition: attachment; filename=" + a.fileName + "\r\n";
+        // dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
         dataa += a.fileData + "\r\n\r\n";
     }
 
@@ -265,6 +265,19 @@ public:
     }
 };
 
+MyMimeEntity writeContent(string content)
+{
+    MyMimeEntity me;
+    // me.header().;
+    me.header().contentType().set("text");
+    me.header().contentType().subtype("plain");
+    me.header().contentType().param("charset", "UTF-8");
+    me.header().contentType().param("format", "flowed");
+    me.header().contentTransferEncoding("7bit");
+    me.body().assign(content);
+    return me;
+}
+
 MyMimeEntity attachFile(string fileName, string filePath)
 {
     MyMimeEntity me;
@@ -281,6 +294,7 @@ MyMimeEntity attachFile(string fileName, string filePath)
 
     stringstream ss;
     ss << file.rdbuf();
+    // me.body().assign("-----");
     me.body().assign(ss.str());
     me.header().contentType().set("text");
     me.header().contentType().subtype("plain");
@@ -303,37 +317,37 @@ bool sendDataWithMIME(mailContent a, int client_fd)
         return 0;
     
     MyMimeEntity me;
-
     cout << "Im here\n";
+    me.header().contentType().set("multipart");
+    me.header().contentType().subtype("mixed");
+    me.header().contentType().param("boundary", "-----");
     me.header().from(a.from);
     me.header().to(a.to);
     me.header().cc(a.cc);
     me.header().bcc(a.bcc);
     me.header().subject(a.subject);
-    // me.header().contentType().param("boundary", "-----");
 
-    me.body().assign(a.content);
-    me.header().contentType().set("text");
-    me.header().contentType().subtype("plain");
-    me.header().contentType().param("charset", "UTF-8");
-    me.header().contentType().param("format", "flowed");
-    me.header().contentTransferEncoding("7bit");
+    // Write content
+    MyMimeEntity me1 = writeContent(a.content);
+    // me.body().append(&me2);
     
-    // Attach file
-    MyMimeEntity me2;
-    if (a.fileName != "")
-    {
-        me2 = attachFile(a.fileName, a.filePath);
-    }
+    // // Attach file
+    // MyMimeEntity me2;
+    // if (a.fileName != "")
+    // {
+    //     me2 = attachFile(a.fileName, a.filePath);
+    // }
 
-    stringstream ss;
-    // ss << me.header();
+    // stringstream ss;
+    // // ss << me.header();
     sendMsg = me.toMimeString() + "\r\n\r\n";
-    sendMsg += me2.toMimeString() + "\r\n\r\n";
-    sendMsg += ".\r\n";
+    sendMsg += "-----\r\n";
+    sendMsg += me1.toMimeString() + "\r\n\r\n";
+    // sendMsg += me2.toMimeString() + "\r\n\r\n";
+    sendMsg += "-----\r\n.\r\n";
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
-    cout << me << endl;
+    cout << sendMsg << endl;
 
     return 1;
 }
@@ -385,8 +399,8 @@ void smtp(config con)
     if (status == 0)
         return;
     // Send Data
-    // cout << sendData(a, client_fd) << endl;
-    cout << sendDataWithMIME(a, client_fd) << endl;
+    cout << sendData(a, client_fd) << endl;
+    // sendDataWithMIME(a, client_fd);
 
     // =======================================
     // Quit
@@ -415,6 +429,19 @@ vector<string> readDataPOP3(string a, int valRead)
         start = pos + 4;
     }
     return parts;
+}
+
+void printMimeStructure(MimeEntity* pMe, int tabcount = 0)
+{
+	Header& h = pMe->header();                   // get header object
+	for(int c = tabcount; c > 0; --c)            // indent nested entities
+		cout << "    ";                      //
+	cout << h.contentType() << endl;             // prints Content-Type
+	MimeEntityList& parts = pMe->body().parts(); // list of sub entities obj
+	// cycle on sub entities list and print info of every item
+	MimeEntityList::iterator mbit = parts.begin(), meit = parts.end();
+	for(; mbit != meit; ++mbit)
+		printMimeStructure(*mbit, 1 + tabcount);
 }
 
 void pop3()
@@ -457,17 +484,17 @@ void pop3()
 
     // =======================================
     // Send User info
-    cout << "Going here\n";
-    sendMsg = "USER khoi2@hcmus.vn\r\n"; // Read from configure file
+    // cout << "Going here\n";
+    sendMsg = "USER khoi3@hcmus.vn\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-    cout << "End here\n";
+    // cout << "End here\n";
     status = serverReply(client_fd);
     if (status == 0)
         return;
 
     // =======================================
     // Send User password
-    sendMsg = "PASS 222\r\n"; // Read from configure file
+    sendMsg = "PASS 333\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
     status = serverReply(client_fd);
@@ -501,7 +528,7 @@ void pop3()
 
     // =======================================
     // Send Request to get mail
-    sendMsg = "RETR 1\r\n"; // Read from configure file
+    sendMsg = "RETR 4\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
     // =======================================
@@ -523,7 +550,16 @@ void pop3()
             cout << parts[i] << endl;
             cout << "++++++++++++++\n";
         }
+
+        ios_base::sync_with_stdio(false);        // optimization
+        istringstream iss(buffer);
+        istreambuf_iterator<char> bit(iss), eit; // get stdin iterators
+        MimeEntity me(bit, eit);                       // parse and load message
+        printMimeStructure(&me);                      // print msg structure
     }
+
+    sendMsg = "QUIT\r\n"; // Read from configure file
+    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
 }
 
