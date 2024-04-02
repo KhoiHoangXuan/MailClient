@@ -98,6 +98,30 @@ bool serverReply(int client_fd)
     return 1;
 }
 
+string serverReplyStr(int client_fd)
+{
+    char buffer[1024];
+    int valRead;
+    string rep = "";
+
+    if ((valRead = recv(client_fd, buffer, sizeof(buffer), 0)) < 0)
+    {
+        cout << "Fail to recv from server\n";
+    }
+    else
+    {
+        cout << "Server reply: ";
+        for (int i = 0; i < valRead; i++)
+        {
+            // cout << buffer[i];
+            rep += buffer[i];
+        }
+        // cout << endl;
+    }
+    memset(buffer, 0, sizeof(buffer));
+    return rep;
+}
+
 string getString()
 {
     string a;
@@ -118,6 +142,7 @@ mailContent writeMail(config con)
 {
     mailContent a;
     a.from = con.uname; // Doc file config
+    cin.ignore();
     cout << "Day la thong tin soan mail (nhan Enter neu khong muon nhap gi hoac muon ket thuc viec nhap)\n";
     cin.ignore();
     cout << "To: ";
@@ -148,16 +173,17 @@ mailContent writeMail(config con)
         a.filePath = getString();
         // cin.ignore();
 
-        // // string fileData;
-        // fstream file;
-        // file.open(filePath, ios::in);
-        // while (!file.eof())
-        // {
-        //     string tmp;
-        //     getline(file, tmp);
-        //     a.fileData += tmp + '\n';
-        // }
-        // file.close();
+        // string fileData;
+        fstream file;
+        file.open(a.filePath, ios::in);
+        while (!file.eof())
+        {
+            string tmp;
+            getline(file, tmp);
+            a.fileData += tmp + '\n';
+        }
+        a.fileData += "-----";
+        file.close();
         // cout << "Data: \n";
         // cout << a.fileData << endl;
     }
@@ -221,10 +247,14 @@ bool sendData(mailContent a, int client_fd)
         return 0;
     
     string dataa = "";
-    dataa += "Date: " + getTime() + "\r\n";
+    dataa += "Date: " + getTime();
     dataa += "From: <" + a.from + ">\r\n";
     dataa += "To: <" + a.to + ">\r\n";
-    dataa += "Subject: " + a.subject + "\r\n";
+    if (a.cc != "")
+        dataa += "CC: <" + a.cc + ">\r\n";
+    if (a.bcc != "")
+        dataa += "BCC: <" + a.bcc + ">\r\n";
+    dataa += "Subject: " + a.subject + "\r\n\r\n";
 
     // Content part
     // dataa += "Content-Type: multipart/alternative;\r\n";
@@ -241,6 +271,8 @@ bool sendData(mailContent a, int client_fd)
         // dataa += "Content-Type: text/plain; charset: UTF-8; name=" + a.fileName + "\r\n";
         // dataa += "Content-Disposition: attachment; filename=" + a.fileName + "\r\n";
         // dataa += "Content-Transfer-Encoding: 7bit\r\n\r\n";
+
+        dataa += a.fileName + "\r\n";
         dataa += a.fileData + "\r\n\r\n";
     }
 
@@ -413,6 +445,42 @@ void smtp(config con)
     close(client_fd);
 }
 
+// =================================
+
+struct listMail
+{
+    string stt;
+    int bytes;
+};
+
+vector<listMail> readLIST(string a)
+{
+    vector<listMail> li;
+    stringstream ss(a);
+    string tmp;
+    getline(ss, tmp);
+    // cout << tmp << endl;
+    while(1)
+    {
+        listMail l;
+        getline(ss, tmp);
+        cout << tmp << endl;
+        if (tmp == ".\r")
+        {
+            cout << "Vao r\n";
+            break;
+        }
+        stringstream sss(tmp);
+        getline(sss, tmp, ' ');
+        l.stt = tmp;
+        getline(sss, tmp);
+        // cout << tmp << endl;
+        l.bytes = stoi(tmp);
+        li.push_back(l);
+    }
+    return li;
+}
+
 vector<string> readDataPOP3(string a, int valRead)
 {
     vector<string> parts;
@@ -442,6 +510,41 @@ void printMimeStructure(MimeEntity* pMe, int tabcount = 0)
 	MimeEntityList::iterator mbit = parts.begin(), meit = parts.end();
 	for(; mbit != meit; ++mbit)
 		printMimeStructure(*mbit, 1 + tabcount);
+}
+
+struct mailParts
+{
+    string header;
+    string content;
+    string fileName;
+    string filePath;
+};
+
+vector<string> fileAttachProcessing(string a)
+{
+    vector<string> v;
+    stringstream ss(a);
+    string tmp;
+
+    getline(ss, tmp);
+    v.push_back(tmp);
+
+    tmp = ss.str();
+    v.push_back(tmp);
+    return v;
+}
+
+void dataPop3Processing(vector<string> parts)
+{
+    mailParts mp;
+    mp.header = parts[0];
+    mp.content = parts[1];
+    vector<string> v = fileAttachProcessing(parts[2]);
+    mp.fileName = v[0];
+    // Ghi file tu v[1]
+
+    cout << "HAHAHAHAHAHA\n";
+    cout << mp.fileName << endl;
 }
 
 void pop3()
@@ -513,9 +616,10 @@ void pop3()
     sendMsg = "LIST\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
+    string rep = serverReplyStr(client_fd);
+    vector<listMail> li = readLIST(rep);
+
+    // Phai di so voi cac mail da nhan roi moi chay RETR
 
     // =======================================
     // Send UIDL
@@ -528,22 +632,24 @@ void pop3()
 
     // =======================================
     // Send Request to get mail
-    sendMsg = "RETR 4\r\n"; // Read from configure file
+    cout << "Mail thu: " << li[li.size() - 1].stt << endl;
+    sendMsg = "RETR " + li[li.size() - 1].stt + "\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
     // =======================================
     // Receive new mail
-    char buffer[bufferSize * 5];
-    // string buffer;
+    char buffer[bufferSize];
+    // memset(buffer, 0, sizeof(buffer));
     int valRead;
 
-    if ((valRead = recv(client_fd, buffer, sizeof(buffer), 0)) < 0)
+    if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
     {
         cout << "Fail to recv from server\n";
         return;
     }
     else
     {
+        cout << "Start =============\n";
         vector<string> parts = readDataPOP3(buffer, valRead);
         for (int i = 0; i < parts.size(); i++)
         {
@@ -551,11 +657,13 @@ void pop3()
             cout << "++++++++++++++\n";
         }
 
-        ios_base::sync_with_stdio(false);        // optimization
-        istringstream iss(buffer);
-        istreambuf_iterator<char> bit(iss), eit; // get stdin iterators
-        MimeEntity me(bit, eit);                       // parse and load message
-        printMimeStructure(&me);                      // print msg structure
+        dataPop3Processing(parts);
+
+        // ios_base::sync_with_stdio(false);        // optimization
+        // istringstream iss(buffer);
+        // istreambuf_iterator<char> bit(iss), eit; // get stdin iterators
+        // MimeEntity me(bit, eit);                       // parse and load message
+        // printMimeStructure(&me);                      // print msg structure
     }
 
     sendMsg = "QUIT\r\n"; // Read from configure file
@@ -584,7 +692,6 @@ int main()
         else if (choice == 2)
         {
             pop3();
-            cout << "======================\n";
         }
     }
     while (choice != 0);
