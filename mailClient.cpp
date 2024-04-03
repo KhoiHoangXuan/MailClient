@@ -12,11 +12,13 @@
 #include <mimetic/mimetic.h>
 #include <mimetic/mimeentity.h>
 #include <mimetic/utils.h>
+#include <filesystem>
 
 
 #define bufferSize 1024
 
 using namespace std;
+using namespace filesystem;
 using namespace mimetic;
 
 struct mailContent
@@ -142,7 +144,7 @@ mailContent writeMail(config con)
 {
     mailContent a;
     a.from = con.uname; // Doc file config
-    cin.ignore();
+    // cin.ignore();
     cout << "Day la thong tin soan mail (nhan Enter neu khong muon nhap gi hoac muon ket thuc viec nhap)\n";
     cin.ignore();
     cout << "To: ";
@@ -534,17 +536,52 @@ vector<string> fileAttachProcessing(string a)
     return v;
 }
 
-void dataPop3Processing(vector<string> parts)
+void writeFileAttach(string fileName, string data, string mailAccount)
+{
+    fstream file;
+    file.open(mailAccount + "/files/" + fileName, ios::out);
+    file << data;
+    file.close();
+}
+
+void writeMailToInbox(mailParts mp, string mailAccount, string idMail)
+{
+    fstream file;
+    file.open(mailAccount + "/inbox/" + idMail + ".txt", ios::out);
+    file << mp.header << "\r\n\r\n" << mp.content << "\r\n\r\n" << mp.fileName << "\r\n" << mp.filePath;
+    file.close();
+}
+
+mailParts dataPop3Processing(vector<string> parts, string mailAccount)
 {
     mailParts mp;
     mp.header = parts[0];
     mp.content = parts[1];
     vector<string> v = fileAttachProcessing(parts[2]);
     mp.fileName = v[0];
-    // Ghi file tu v[1]
+    writeFileAttach(v[0], v[1], mailAccount);
+    mp.filePath = mailAccount + "/files/" + mp.fileName;
+    return mp;
+    // cout << "HAHAHAHAHAHA\n";
+    // cout << mp.fileName << endl;
+}
 
-    cout << "HAHAHAHAHAHA\n";
-    cout << mp.fileName << endl;
+void createMailBoxFolder(string mailAccount)
+{
+    if (create_directory(mailAccount) == 0)
+        cout << "Thu muc da duoc tao\n";
+    if (create_directory(mailAccount + "/inbox"))
+        cout << "Tao thu muc inbox thanh cong\n";
+    if (create_directory(mailAccount + "/files"))
+        cout << "Tao thu muc files thanh cong\n";
+
+}
+
+int choicePop3_Inbox()
+{
+    cout << "Day la danh sach mail trong folder Inbox\n";
+    cin.ignore();
+    
 }
 
 void pop3()
@@ -560,6 +597,9 @@ void pop3()
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(3335);
     serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    // Create mail box for user
+    createMailBoxFolder("khoi3@hcmus.vn");
 
     bool status = 1;
     // =======================================
@@ -651,13 +691,15 @@ void pop3()
     {
         cout << "Start =============\n";
         vector<string> parts = readDataPOP3(buffer, valRead);
-        for (int i = 0; i < parts.size(); i++)
-        {
-            cout << parts[i] << endl;
-            cout << "++++++++++++++\n";
-        }
+        // for (int i = 0; i < parts.size(); i++)
+        // {
+        //     cout << parts[i] << endl;
+        //     cout << "++++++++++++++\n";
+        // }
 
-        dataPop3Processing(parts);
+        mailParts mp = dataPop3Processing(parts, "khoi3@hcmus.vn");
+        writeMailToInbox(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt);
+
 
         // ios_base::sync_with_stdio(false);        // optimization
         // istringstream iss(buffer);
