@@ -483,7 +483,7 @@ vector<listMail> readLIST(string a)
     return li;
 }
 
-vector<string> readDataPOP3(string a, int valRead)
+vector<string> readDataPOP3(string a)
 {
     vector<string> parts;
     int start = 0;
@@ -491,8 +491,8 @@ vector<string> readDataPOP3(string a, int valRead)
     {
         int pos = a.find("\r\n\r\n", start);
         string tmp1 = a.substr(start, pos - start);
-        // cout << tmp1 << endl << "==============\n";
-        if (tmp1 == ".\r\n")
+        cout << tmp1 << endl << "==============\n";
+        if (tmp1[0] == '.')
             break;
         parts.push_back(tmp1);
         // string tmp = a.substr(pos - start + 4);
@@ -522,7 +522,7 @@ struct mailParts
     string filePath;
 };
 
-vector<string> fileAttachProcessing(string a)
+vector<string> readFileAttach(string a)
 {
     vector<string> v;
     stringstream ss(a);
@@ -548,19 +548,22 @@ void writeMailToInbox(mailParts mp, string mailAccount, string idMail)
 {
     fstream file;
     file.open(mailAccount + "/inbox/" + idMail + ".txt", ios::out);
-    file << mp.header << "\r\n\r\n" << mp.content << "\r\n\r\n" << mp.fileName << "\r\n" << mp.filePath;
+    file << mp.header << "\r\n\r\n" << mp.content << "\r\n\r\n" << mp.fileName << "\r\n" << ".\r\n";
     file.close();
 }
 
-mailParts dataPop3Processing(vector<string> parts, string mailAccount)
+mailParts readDataPop3FromMail(vector<string> parts, string mailAccount)
 {
     mailParts mp;
+
     mp.header = parts[0];
     mp.content = parts[1];
-    vector<string> v = fileAttachProcessing(parts[2]);
+
+    vector<string> v = readFileAttach(parts[2]);
     mp.fileName = v[0];
     writeFileAttach(v[0], v[1], mailAccount);
     mp.filePath = mailAccount + "/files/" + mp.fileName;
+    
     return mp;
     // cout << "HAHAHAHAHAHA\n";
     // cout << mp.fileName << endl;
@@ -577,11 +580,95 @@ void createMailBoxFolder(string mailAccount)
 
 }
 
+struct mailStatus
+{
+    string id;
+    string status;
+};
+
+vector<mailStatus> outputStatus(string mailAccount, string type)
+{
+    vector<mailStatus> ms;
+    fstream file;
+    file.open(mailAccount + "/" + type + "/" + "status.txt");
+    if (!file.is_open())
+    {
+        cout << "No\n";
+        return ms;
+    }
+    while(!file.eof())
+    {
+        mailStatus mss;
+        getline(file, mss.id);
+        getline(file, mss.status);
+        ms.push_back(mss);
+    }
+    file.close();
+    return ms;
+}
+
+// void inputStatus()
+// {
+
+// }
+
+mailParts getMailData(string mailAccount, string type, string id)
+{
+    cout << "Here\n";
+    mailParts mp;
+    string dataa = "";
+    fstream file;
+    file.open(mailAccount + "/" + type + "/" + id + ".txt", ios::in);
+    if (!file.is_open())
+    {
+        cout << "NO\n";
+        return mp;
+    }
+    while (!file.eof())
+    {
+        string tmp;
+        getline(file, tmp);
+        dataa += tmp + "\r\n";
+    }
+    file.close();
+    cout << dataa << endl;
+    vector<string> parts = readDataPOP3(dataa);
+    mp.header = parts[0];
+    mp.content = parts[1];
+    mp.fileName = parts[2];
+    return mp;
+}
+
+vector<mailParts> getAllMailData(vector<mailStatus> ms, string type, string mailAccount)
+{
+    vector<mailParts> mp;
+    for (int i = 0; i < ms.size(); i++)
+    {
+        mailParts mps = getMailData(mailAccount, type, ms[i].id);
+        mp.push_back(mps);
+    }
+    return mp;
+}
+
+void printMailBox(vector<mailStatus> ms, string type, string mailAccount)
+{
+    vector<mailParts> mp = getAllMailData(ms, type, mailAccount);
+    for (int i = 0; i < mp.size(); i++)
+    {
+        cout << i + 1 << " -----\n";
+        cout << mp[i].header << endl;
+        cout << mp[i].content << endl;
+        cout << "Attach: " << mp[i].fileName << endl;
+        cout << "-------\n";
+    }
+}
+
 int choicePop3_Inbox()
 {
+    vector<mailStatus> ms = outputStatus("khoi3@hcmus.vn", "inbox");
     cout << "Day la danh sach mail trong folder Inbox\n";
-    cin.ignore();
-    
+    printMailBox(ms, "inbox", "khoi3@hcmus.vn");
+    return 0;
 }
 
 void pop3()
@@ -690,15 +777,19 @@ void pop3()
     else
     {
         cout << "Start =============\n";
-        vector<string> parts = readDataPOP3(buffer, valRead);
-        // for (int i = 0; i < parts.size(); i++)
-        // {
-        //     cout << parts[i] << endl;
-        //     cout << "++++++++++++++\n";
-        // }
+        vector<string> parts = readDataPOP3(buffer);
+        for (int i = 0; i < parts.size(); i++)
+        {
+            cout << parts[i] << endl;
+            cout << "++++++++++++++\n";
+        }
 
-        mailParts mp = dataPop3Processing(parts, "khoi3@hcmus.vn");
+        cout << "Im here\n";
+        mailParts mp = readDataPop3FromMail(parts, "khoi3@hcmus.vn");
+        cout << "Im here\n";
         writeMailToInbox(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt);
+        cout << "Im here\n";
+        int c = choicePop3_Inbox();
 
 
         // ios_base::sync_with_stdio(false);        // optimization
@@ -734,6 +825,14 @@ int main()
         else if (choice == 2)
         {
             pop3();
+        }
+        else if (choice == 3)
+        {
+            vector<mailStatus> ms = outputStatus("khoi3@hcmus.vn", "inbox");
+            for (int i = 0; i < ms.size(); i++)
+            {
+                cout << ms[i].id << " --- " << ms[i].status << endl;
+            }
         }
     }
     while (choice != 0);
