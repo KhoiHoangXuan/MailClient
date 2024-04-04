@@ -856,7 +856,7 @@ void pop3()
         cout << "Im here 1\n";
         mailParts mp = readDataPop3FromMail(parts, "khoi3@hcmus.vn");
 
-        cout << getMailType(mp.header) << " bla\n";
+        // cout << getMailType(mp.header) << " bla\n";
 
         // cout << "Im here 2\n";
         // writeMailToFolder(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt, "inbox");
