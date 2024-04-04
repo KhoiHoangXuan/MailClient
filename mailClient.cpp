@@ -1,6 +1,7 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <string.h>
+#include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -9,9 +10,9 @@
 #include <sstream>
 #include <ctime>
 #include <fstream>
-#include <mimetic/mimetic.h>
-#include <mimetic/mimeentity.h>
-#include <mimetic/utils.h>
+// #include <mimetic/mimetic.h>
+// #include <mimetic/mimeentity.h>
+// #include <mimetic/utils.h>
 #include <filesystem>
 
 
@@ -19,7 +20,7 @@
 
 using namespace std;
 using namespace filesystem;
-using namespace mimetic;
+// using namespace mimetic;
 
 struct mailContent
 {
@@ -140,6 +141,16 @@ string getString()
     return a;
 }
 
+int getFileSize(string filePath)
+{
+    int size;
+    fstream file;
+    file.open(filePath, ios::in | ios::binary | ios::ate);
+    size = static_cast<int>(file.tellg());
+    file.close();
+    return size;
+}
+
 mailContent writeMail(config con)
 {
     mailContent a;
@@ -167,15 +178,25 @@ mailContent writeMail(config con)
     cin.ignore();
     if (fileChoice == "1")
     {
-        // string fileName;
-        cout << "Nhap ten file: ";
-        a.fileName = getString();
-        // cin.ignore();
-        cout << "Nhap duong dan cua file: ";
-        a.filePath = getString();
-        // cin.ignore();
+        do
+        {
+            // string fileName;
+            cout << "Nhap ten file: ";
+            a.fileName = getString();
+            // cin.ignore();
+            cout << "Nhap duong dan cua file: ";
+            a.filePath = getString();
+            // cin.ignore();
 
-        // string fileData;
+            if (getFileSize(a.filePath) > 3000000)
+            {
+                cout << "File > 3MB. Hay chon file khac\n";
+            }
+            else
+                break;
+        } while (1);
+        
+        // Check file size
         fstream file;
         file.open(a.filePath, ios::in);
         while (!file.eof())
@@ -250,7 +271,7 @@ bool sendData(mailContent a, int client_fd)
     
     string dataa = "";
     dataa += "Date: " + getTime();
-    dataa += "From: <" + a.from + ">\r\n";
+    dataa += "From: " + a.from + "\r\n";
     dataa += "To: <" + a.to + ">\r\n";
     if (a.cc != "")
         dataa += "CC: <" + a.cc + ">\r\n";
@@ -290,101 +311,101 @@ bool sendData(mailContent a, int client_fd)
     return 1;
 }
 
-class MyMimeEntity : public MimeEntity {
-public:
-    string toMimeString() {
-        stringstream ss;
-        this->write(ss);
-        return ss.str();
-    }
-};
+// class MyMimeEntity : public MimeEntity {
+// public:
+//     string toMimeString() {
+//         stringstream ss;
+//         this->write(ss);
+//         return ss.str();
+//     }
+// };
 
-MyMimeEntity writeContent(string content)
-{
-    MyMimeEntity me;
-    // me.header().;
-    me.header().contentType().set("text");
-    me.header().contentType().subtype("plain");
-    me.header().contentType().param("charset", "UTF-8");
-    me.header().contentType().param("format", "flowed");
-    me.header().contentTransferEncoding("7bit");
-    me.body().assign(content);
-    return me;
-}
+// MyMimeEntity writeContent(string content)
+// {
+//     MyMimeEntity me;
+//     // me.header().;
+//     me.header().contentType().set("text");
+//     me.header().contentType().subtype("plain");
+//     me.header().contentType().param("charset", "UTF-8");
+//     me.header().contentType().param("format", "flowed");
+//     me.header().contentTransferEncoding("7bit");
+//     me.body().assign(content);
+//     return me;
+// }
 
-MyMimeEntity attachFile(string fileName, string filePath)
-{
-    MyMimeEntity me;
+// MyMimeEntity attachFile(string fileName, string filePath)
+// {
+//     MyMimeEntity me;
 
-    fstream file;
-    file.open(filePath, ios::in);
-    if (!file)
-    {
-        cout << "Error to open file\n";
-        file.close();
-        return me;
-    }
+//     fstream file;
+//     file.open(filePath, ios::in);
+//     if (!file)
+//     {
+//         cout << "Error to open file\n";
+//         file.close();
+//         return me;
+//     }
 
 
-    stringstream ss;
-    ss << file.rdbuf();
-    // me.body().assign("-----");
-    me.body().assign(ss.str());
-    me.header().contentType().set("text");
-    me.header().contentType().subtype("plain");
-    me.header().contentType().param("name", fileName);
-    me.header().contentType().param("charset", "us-ascii");
-    me.header().contentDisposition("attachment");
-    me.header().contentDisposition().param("filename", fileName);
-    file.close();
-    return me;
-}
+//     stringstream ss;
+//     ss << file.rdbuf();
+//     // me.body().assign("-----");
+//     me.body().assign(ss.str());
+//     me.header().contentType().set("text");
+//     me.header().contentType().subtype("plain");
+//     me.header().contentType().param("name", fileName);
+//     me.header().contentType().param("charset", "us-ascii");
+//     me.header().contentDisposition("attachment");
+//     me.header().contentDisposition().param("filename", fileName);
+//     file.close();
+//     return me;
+// }
 
-bool sendDataWithMIME(mailContent a, int client_fd)
-{
-    bool status;
+// bool sendDataWithMIME(mailContent a, int client_fd)
+// {
+//     bool status;
 
-    string sendMsg = "DATA\r\n";
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-    status = serverReply(client_fd);
-    if (status == 0)
-        return 0;
+//     string sendMsg = "DATA\r\n";
+//     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+//     status = serverReply(client_fd);
+//     if (status == 0)
+//         return 0;
     
-    MyMimeEntity me;
-    cout << "Im here\n";
-    me.header().contentType().set("multipart");
-    me.header().contentType().subtype("mixed");
-    me.header().contentType().param("boundary", "-----");
-    me.header().from(a.from);
-    me.header().to(a.to);
-    me.header().cc(a.cc);
-    me.header().bcc(a.bcc);
-    me.header().subject(a.subject);
+//     MyMimeEntity me;
+//     cout << "Im here\n";
+//     me.header().contentType().set("multipart");
+//     me.header().contentType().subtype("mixed");
+//     me.header().contentType().param("boundary", "-----");
+//     me.header().from(a.from);
+//     me.header().to(a.to);
+//     me.header().cc(a.cc);
+//     me.header().bcc(a.bcc);
+//     me.header().subject(a.subject);
 
-    // Write content
-    MyMimeEntity me1 = writeContent(a.content);
-    // me.body().append(&me2);
+//     // Write content
+//     MyMimeEntity me1 = writeContent(a.content);
+//     // me.body().append(&me2);
     
-    // // Attach file
-    // MyMimeEntity me2;
-    // if (a.fileName != "")
-    // {
-    //     me2 = attachFile(a.fileName, a.filePath);
-    // }
+//     // // Attach file
+//     // MyMimeEntity me2;
+//     // if (a.fileName != "")
+//     // {
+//     //     me2 = attachFile(a.fileName, a.filePath);
+//     // }
 
-    // stringstream ss;
-    // // ss << me.header();
-    sendMsg = me.toMimeString() + "\r\n\r\n";
-    sendMsg += "-----\r\n";
-    sendMsg += me1.toMimeString() + "\r\n\r\n";
-    // sendMsg += me2.toMimeString() + "\r\n\r\n";
-    sendMsg += "-----\r\n.\r\n";
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+//     // stringstream ss;
+//     // // ss << me.header();
+//     sendMsg = me.toMimeString() + "\r\n\r\n";
+//     sendMsg += "-----\r\n";
+//     sendMsg += me1.toMimeString() + "\r\n\r\n";
+//     // sendMsg += me2.toMimeString() + "\r\n\r\n";
+//     sendMsg += "-----\r\n.\r\n";
+//     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
-    cout << sendMsg << endl;
+//     cout << sendMsg << endl;
 
-    return 1;
-}
+//     return 1;
+// }
 
 void smtp(config con)
 {
@@ -480,11 +501,13 @@ vector<listMail> readLIST(string a)
         l.bytes = stoi(tmp);
         li.push_back(l);
     }
+    cout << "Ra roi\n";
     return li;
 }
 
 vector<string> readDataPOP3(string a)
 {
+    cout << a << endl;
     vector<string> parts;
     int start = 0;
     while (1)
@@ -499,19 +522,6 @@ vector<string> readDataPOP3(string a)
         start = pos + 4;
     }
     return parts;
-}
-
-void printMimeStructure(MimeEntity* pMe, int tabcount = 0)
-{
-	Header& h = pMe->header();                   // get header object
-	for(int c = tabcount; c > 0; --c)            // indent nested entities
-		cout << "    ";                      //
-	cout << h.contentType() << endl;             // prints Content-Type
-	MimeEntityList& parts = pMe->body().parts(); // list of sub entities obj
-	// cycle on sub entities list and print info of every item
-	MimeEntityList::iterator mbit = parts.begin(), meit = parts.end();
-	for(; mbit != meit; ++mbit)
-		printMimeStructure(*mbit, 1 + tabcount);
 }
 
 struct mailParts
@@ -544,11 +554,21 @@ void writeFileAttach(string fileName, string data, string mailAccount)
     file.close();
 }
 
-void writeMailToInbox(mailParts mp, string mailAccount, string idMail)
+void writeMailToFolder(mailParts mp, string mailAccount, string idMail, string mailType)
 {
+    cout << mp.fileName << endl;
     fstream file;
-    file.open(mailAccount + "/inbox/" + idMail + ".txt", ios::out);
-    file << mp.header << "\r\n\r\n" << mp.content << "\r\n\r\n" << mp.fileName << "\r\n" << ".\r\n";
+    file.open(mailAccount + "/" + mailType + "/" + idMail + ".txt", ios::out);
+    file << mp.header << "\r\n---\r\n" << mp.content << "\r\n";
+    if (mp.fileName != "")
+    {
+        string tmp = " is attach";
+        string tmp2 = mp.fileName.insert(mp.fileName.length() - 1, tmp);
+        cout << "aaaaaaaaaaaaaaaaaaaaaaaa " << tmp2 << endl;
+        mp.fileName = tmp2;
+        file << "\r\n";
+    }
+    file << mp.fileName << "\r\n" << ".\r\n";
     file.close();
 }
 
@@ -559,14 +579,16 @@ mailParts readDataPop3FromMail(vector<string> parts, string mailAccount)
     mp.header = parts[0];
     mp.content = parts[1];
 
-    vector<string> v = readFileAttach(parts[2]);
-    mp.fileName = v[0];
-    writeFileAttach(v[0], v[1], mailAccount);
-    mp.filePath = mailAccount + "/files/" + mp.fileName;
+    if (parts.size() > 2)
+    {
+        cout << "HAHAHAHAHA " << parts[2] << endl;
+        vector<string> v = readFileAttach(parts[2]);
+        mp.fileName = v[0];
+        writeFileAttach(v[0], v[1], mailAccount);
+        mp.filePath = mailAccount + "/files/" + mp.fileName;
+    }
     
     return mp;
-    // cout << "HAHAHAHAHAHA\n";
-    // cout << mp.fileName << endl;
 }
 
 void createMailBoxFolder(string mailAccount)
@@ -586,23 +608,26 @@ struct mailStatus
     string status;
 };
 
-vector<mailStatus> outputStatus(string mailAccount, string type)
+vector<mailStatus> outputStatus(string mailAccount, string mailType)
 {
     vector<mailStatus> ms;
     fstream file;
-    file.open(mailAccount + "/" + type + "/" + "status.txt");
+    file.open(mailAccount + "/" + mailType + "/" + "status.txt");
     if (!file.is_open())
     {
         cout << "No\n";
         return ms;
     }
-    while(!file.eof())
+    do
     {
         mailStatus mss;
         getline(file, mss.id);
         getline(file, mss.status);
-        ms.push_back(mss);
+        cout << mss.id << " --- " << mss.status << endl;
+        if (mss.id != "")
+            ms.push_back(mss);
     }
+    while(!file.eof());
     file.close();
     return ms;
 }
@@ -612,17 +637,17 @@ vector<mailStatus> outputStatus(string mailAccount, string type)
 
 // }
 
-mailParts getMailData(string mailAccount, string type, string id)
+vector<string> getMailData(string mailAccount, string type, string id)
 {
+    vector<string> p;
     cout << "Here\n";
-    mailParts mp;
     string dataa = "";
     fstream file;
     file.open(mailAccount + "/" + type + "/" + id + ".txt", ios::in);
     if (!file.is_open())
     {
         cout << "NO\n";
-        return mp;
+        return p;
     }
     while (!file.eof())
     {
@@ -631,45 +656,87 @@ mailParts getMailData(string mailAccount, string type, string id)
         dataa += tmp + "\r\n";
     }
     file.close();
-    cout << dataa << endl;
-    vector<string> parts = readDataPOP3(dataa);
-    mp.header = parts[0];
-    mp.content = parts[1];
-    mp.fileName = parts[2];
-    return mp;
+    // cout << dataa << endl;
+
+    string tmp;
+    int pos = dataa.find("\r\n");
+    tmp = dataa.substr(pos + 2);
+    // cout << "---\n";
+    // cout << tmp << endl;
+
+    int pos2 = tmp.find("---");
+    p.push_back(tmp.substr(0, pos2));
+    p.push_back(tmp);
+    // cout << "+++++++++++=\n";
+    // cout << p[0] << "\nhahaha\n" << p[1] << endl;
+    return p;
 }
 
-vector<mailParts> getAllMailData(vector<mailStatus> ms, string type, string mailAccount)
+vector<vector<string>> getAllMailData(vector<mailStatus> ms, string type, string mailAccount)
 {
-    vector<mailParts> mp;
+    vector<vector<string>> mp;
     for (int i = 0; i < ms.size(); i++)
     {
-        mailParts mps = getMailData(mailAccount, type, ms[i].id);
+        vector<string> mps = getMailData(mailAccount, type, ms[i].id);
         mp.push_back(mps);
+        continue;
     }
     return mp;
 }
 
-void printMailBox(vector<mailStatus> ms, string type, string mailAccount)
+vector<vector<string>> printMailBox(vector<mailStatus> ms, string type, string mailAccount)
 {
-    vector<mailParts> mp = getAllMailData(ms, type, mailAccount);
+    vector<vector<string>> mp = getAllMailData(ms, type, mailAccount);
     for (int i = 0; i < mp.size(); i++)
     {
-        cout << i + 1 << " -----\n";
-        cout << mp[i].header << endl;
-        cout << mp[i].content << endl;
-        cout << "Attach: " << mp[i].fileName << endl;
-        cout << "-------\n";
+        cout << "---------------" << i + 1 << "---------------";
+        if (ms[i].status == "0")
+            cout << "(chua doc)";
+        cout << endl;
+        cout << mp[i][0] << endl;
+        cout << "-------------------------------\n";
     }
+    return mp;
 }
 
-int choicePop3_Inbox()
+void readMail(int choice, string dataa)
+{
+    cout << "\nNoi dung mail thu " << choice << endl;
+    cout << "==============================\n";
+    cout << dataa << endl;
+    cout << "==============================\n";
+}
+
+int choiceMailToRead(string mailType)
 {
     vector<mailStatus> ms = outputStatus("khoi3@hcmus.vn", "inbox");
     cout << "Day la danh sach mail trong folder Inbox\n";
-    printMailBox(ms, "inbox", "khoi3@hcmus.vn");
+    vector<vector<string>> mp = printMailBox(ms, mailType, "khoi3@hcmus.vn");
+
+    int choice = 0;
+    do
+    {
+        cout << "Hay chon mail muon doc (chon 0 neu muon huy): ";
+        cin.ignore();
+        cin >> choice;
+        if (choice == 0)
+            return 0;
+        cout << "Ban chon thu: " << choice << endl;
+    }
+    while(choice > ms.size());
+    readMail(choice, mp[choice - 1][1]);
+
     return 0;
 }
+
+// string getMailType(string header)
+// {
+//     cout << header << "---" << endl;
+//     int pos = header.find("<");
+//     int pos1 = header.find(">\r");
+//     string mail = header.substr(pos + 1, pos1 - pos - 1);
+//     return mail;
+// }
 
 void pop3()
 {
@@ -777,19 +844,24 @@ void pop3()
     else
     {
         cout << "Start =============\n";
+
         vector<string> parts = readDataPOP3(buffer);
+        cout << "Mid ===============\n";
         for (int i = 0; i < parts.size(); i++)
         {
             cout << parts[i] << endl;
             cout << "++++++++++++++\n";
         }
 
-        cout << "Im here\n";
+        cout << "Im here 1\n";
         mailParts mp = readDataPop3FromMail(parts, "khoi3@hcmus.vn");
-        cout << "Im here\n";
-        writeMailToInbox(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt);
-        cout << "Im here\n";
-        int c = choicePop3_Inbox();
+
+        cout << getMailType(mp.header) << " bla\n";
+
+        // cout << "Im here 2\n";
+        // writeMailToFolder(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt, "inbox");
+        // cout << "Im here 3\n";
+        // int c = choiceMailToRead("inbox");
 
 
         // ios_base::sync_with_stdio(false);        // optimization
@@ -828,11 +900,7 @@ int main()
         }
         else if (choice == 3)
         {
-            vector<mailStatus> ms = outputStatus("khoi3@hcmus.vn", "inbox");
-            for (int i = 0; i < ms.size(); i++)
-            {
-                cout << ms[i].id << " --- " << ms[i].status << endl;
-            }
+            // cout << getFileSize("./config.txt");
         }
     }
     while (choice != 0);
