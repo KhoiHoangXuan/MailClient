@@ -570,6 +570,12 @@ void writeMailToFolder(mailParts mp, string mailAccount, string idMail, string m
     }
     file << mp.fileName << "\r\n" << ".\r\n";
     file.close();
+
+    fstream file2;
+    file.open(mailAccount + "/" + mailType + "/status.txt", ios::out | ios::app);
+    file << idMail << endl;
+    file << "0\n";
+    file.close();
 }
 
 mailParts readDataPop3FromMail(vector<string> parts, string mailAccount)
@@ -594,12 +600,37 @@ mailParts readDataPop3FromMail(vector<string> parts, string mailAccount)
 void createMailBoxFolder(string mailAccount)
 {
     if (create_directory(mailAccount) == 0)
+    {
         cout << "Thu muc da duoc tao\n";
+    }
+    else
+    {
+        fstream file;
+        file.open(mailAccount + "/list.txt", ios::out);
+        if (!file.is_open())
+            cout << "Khong the tao file\n";
+        file.close();
+    }
+
     if (create_directory(mailAccount + "/inbox"))
         cout << "Tao thu muc inbox thanh cong\n";
+
+    if (create_directory(mailAccount + "/project"))
+        cout << "Tao thu muc project thanh cong\n";
+
+    if (create_directory(mailAccount + "/important"))
+        cout << "Tao thu muc important thanh cong\n";
+
+    if (create_directory(mailAccount + "/spam"))
+        cout << "Tao thu muc spam thanh cong\n";
+
+    if (create_directory(mailAccount + "/work"))
+        cout << "Tao thu muc work thanh cong\n";
+
     if (create_directory(mailAccount + "/files"))
         cout << "Tao thu muc files thanh cong\n";
 
+    
 }
 
 struct mailStatus
@@ -608,11 +639,11 @@ struct mailStatus
     string status;
 };
 
-vector<mailStatus> outputStatus(string mailAccount, string mailType)
+vector<mailStatus> readStatus(string mailAccount, string mailType)
 {
     vector<mailStatus> ms;
     fstream file;
-    file.open(mailAccount + "/" + mailType + "/" + "status.txt");
+    file.open(mailAccount + "/" + mailType + "/" + "status.txt" , ios::in);
     if (!file.is_open())
     {
         cout << "No\n";
@@ -623,7 +654,7 @@ vector<mailStatus> outputStatus(string mailAccount, string mailType)
         mailStatus mss;
         getline(file, mss.id);
         getline(file, mss.status);
-        cout << mss.id << " --- " << mss.status << endl;
+        // cout << mss.id << " --- " << mss.status << endl;
         if (mss.id != "")
             ms.push_back(mss);
     }
@@ -632,10 +663,56 @@ vector<mailStatus> outputStatus(string mailAccount, string mailType)
     return ms;
 }
 
-// void inputStatus()
-// {
+void writeStatus(string mailAccount, string mailType, vector<mailStatus> ms)
+{
+    fstream file;
+    file.open(mailAccount + "/" + mailType + "/" + "status.txt" , ios::out);
+    for (int i = 0; i < ms.size(); i++)
+    {
+        file << ms[i].id << endl;
+        file << ms[i].status << endl;
+    }
+    file.close();
+}
 
-// }
+vector<string> readUserMails(string mailAccount)
+{
+    vector<string> mails;
+    fstream file;
+    file.open(mailAccount + "/list.txt", ios::in);
+    while(!file.eof())
+    {
+        string tmp;
+        getline(file, tmp);
+        if (tmp != "")
+        {
+            mails.push_back(tmp);
+        }
+    }
+    file.close();
+    return mails;
+}
+
+void writeUserMails(string mailAccount, vector<string> mails)
+{
+    fstream file;
+    file.open(mailAccount + "/list.txt", ios::out);
+    for (int i = 0; i < mails.size(); i++)
+    {
+        file << mails[i] << endl;
+    }
+    file.close();
+}
+
+vector<string> getNewMailID(vector <string> userMails, vector<listMail> lm)
+{
+    vector<string> newMailID;
+    for (int i = userMails.size(); i < lm.size(); i++)
+    {
+        newMailID.push_back(lm[i].stt);
+    }
+    return newMailID;
+}
 
 vector<string> getMailData(string mailAccount, string type, string id)
 {
@@ -707,11 +784,34 @@ void readMail(int choice, string dataa)
     cout << "==============================\n";
 }
 
-int choiceMailToRead(string mailType)
+string chooseFolderToReadMail()
 {
-    vector<mailStatus> ms = outputStatus("khoi3@hcmus.vn", "inbox");
+    int choice = 0;
+    cout << "Cac Folder trong Mailbox: \n";
+    cout << "1. Inbox\n2. Project\n3. Important\n4. Work\n5. Spam\n";
+    cout << "Hay chon Folder (Chon 0 de thoat): ";
+    cin >> choice;
+    if (choice == 1)
+        return "inbox";
+    if (choice == 2)
+        return "project";
+    if (choice == 1)
+        return "important";
+    if (choice == 1)
+        return "work";
+    if (choice == 1)
+        return "spam";
+    return "";
+}
+
+void choiceMailToRead(string userMail)
+{
+    string mailType = chooseFolderToReadMail();
+    if (mailType == "")
+        return;
+    vector<mailStatus> ms = readStatus(userMail, mailType);
     cout << "Day la danh sach mail trong folder Inbox\n";
-    vector<vector<string>> mp = printMailBox(ms, mailType, "khoi3@hcmus.vn");
+    vector<vector<string>> mp = printMailBox(ms, mailType, userMail);
 
     int choice = 0;
     do
@@ -720,26 +820,56 @@ int choiceMailToRead(string mailType)
         cin.ignore();
         cin >> choice;
         if (choice == 0)
-            return 0;
+            return;
         cout << "Ban chon thu: " << choice << endl;
     }
     while(choice > ms.size());
     readMail(choice, mp[choice - 1][1]);
 
-    return 0;
+    // Update state
+    ms[choice - 1].status = "1";
+    writeStatus(userMail, mailType, ms);
+
+    return;
 }
 
-// string getMailType(string header)
-// {
-//     cout << header << "---" << endl;
-//     int pos = header.find("<");
-//     int pos1 = header.find(">\r");
-//     string mail = header.substr(pos + 1, pos1 - pos - 1);
-//     return mail;
-// }
+string getMailTypeFromSender(string header)
+{
+    int pos = header.find("<");
+    int pos1 = header.find(">\r");
+    string sender = header.substr(pos + 1, pos1 - pos - 1);
+    return sender;
+}
+
+string getMailTypeFromSubject(string header)
+{
+    int pos = header.find("Subject: ");
+    string subject = header.substr(pos + 9);
+    return subject;
+}
+
+string getMailType(string header, string content)
+{
+    string sender = getMailTypeFromSender(header);
+    if (sender == "sep@hcmus.vn")
+        return "project";
+
+    string subject = getMailTypeFromSubject(header);
+    if (subject.find("urgent") != string::npos || subject.find("ASAP") != string::npos)
+        return "important";
+    
+    if (content.find("work") != string::npos || content.find("meeting") != string::npos)
+        return "work";
+
+    if (subject.find("hack") != string::npos || subject.find("crack") != string::npos || content.find("hack") != string::npos || content.find("crack") != string::npos)
+        return "spam";
+
+    return "inbox";
+}
 
 void pop3()
 {
+    string mailAccount = "u1@hcmus.vn";
     int client_fd;
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -753,7 +883,7 @@ void pop3()
     serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     // Create mail box for user
-    createMailBoxFolder("khoi3@hcmus.vn");
+    createMailBoxFolder(mailAccount);
 
     bool status = 1;
     // =======================================
@@ -782,7 +912,7 @@ void pop3()
     // =======================================
     // Send User info
     // cout << "Going here\n";
-    sendMsg = "USER khoi3@hcmus.vn\r\n"; // Read from configure file
+    sendMsg = "USER " + mailAccount + "\r\n"; // Read from configure file
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
     // cout << "End here\n";
     status = serverReply(client_fd);
@@ -826,54 +956,58 @@ void pop3()
 
     // =======================================
     // Send Request to get mail
-    cout << "Mail thu: " << li[li.size() - 1].stt << endl;
-    sendMsg = "RETR " + li[li.size() - 1].stt + "\r\n"; // Read from configure file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+    vector<string> userMails = readUserMails(mailAccount);
+    vector<string> newMailID = getNewMailID(userMails, li);
 
-    // =======================================
-    // Receive new mail
-    char buffer[bufferSize];
-    // memset(buffer, 0, sizeof(buffer));
-    int valRead;
-
-    if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
+    for (int i = 0; i < newMailID.size(); i++)
     {
-        cout << "Fail to recv from server\n";
-        return;
-    }
-    else
-    {
-        cout << "Start =============\n";
+        cout << "Mail thu: " << newMailID[i] << endl;
+        sendMsg = "RETR " + newMailID[i] + "\r\n"; // Read from configure file
+        send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
-        vector<string> parts = readDataPOP3(buffer);
-        cout << "Mid ===============\n";
-        for (int i = 0; i < parts.size(); i++)
+        // =======================================
+        // Receive new mail
+        char buffer[bufferSize];
+        // memset(buffer, 0, sizeof(buffer));
+        int valRead;
+
+        if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
         {
-            cout << parts[i] << endl;
-            cout << "++++++++++++++\n";
+            cout << "Fail to recv from server\n";
+            sendMsg = "QUIT\r\n";
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+            return;
         }
+        else
+        {
+            userMails.push_back(newMailID[i]);
+            // cout << "Start =============\n";
 
-        cout << "Im here 1\n";
-        mailParts mp = readDataPop3FromMail(parts, "khoi3@hcmus.vn");
+            // vector<string> parts = readDataPOP3(buffer);
+            // cout << "Mid ===============\n";
+            // for (int i = 0; i < parts.size(); i++)
+            // {
+            //     cout << parts[i] << endl;
+            //     cout << "++++++++++++++\n";
+            // }
 
-        // cout << getMailType(mp.header) << " bla\n";
+            // cout << "Im here 1\n";
+            // mailParts mp = readDataPop3FromMail(parts, mailAccount);
 
-        // cout << "Im here 2\n";
-        // writeMailToFolder(mp, "khoi3@hcmus.vn", li[li.size() - 1].stt, "inbox");
-        // cout << "Im here 3\n";
-        // int c = choiceMailToRead("inbox");
+            // string mailType = getMailType(mp.header, mp.content);
+            // cout << "Your mail in " << mailType << endl;
 
-
-        // ios_base::sync_with_stdio(false);        // optimization
-        // istringstream iss(buffer);
-        // istreambuf_iterator<char> bit(iss), eit; // get stdin iterators
-        // MimeEntity me(bit, eit);                       // parse and load message
-        // printMimeStructure(&me);                      // print msg structure
+            // cout << "Im here 2\n";
+            // writeMailToFolder(mp, mailAccount, li[li.size() - 1].stt, mailType);
+        }
     }
 
-    sendMsg = "QUIT\r\n"; // Read from configure file
+    writeUserMails(mailAccount, userMails);
+    sendMsg = "QUIT\r\n";
     send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
+    cout << "Im here 3\n";
+    choiceMailToRead(mailAccount);
 }
 
 int main()
