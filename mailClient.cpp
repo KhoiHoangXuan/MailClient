@@ -696,11 +696,11 @@ string chooseFolderToReadMail()
         return "inbox";
     if (choice == 2)
         return "project";
-    if (choice == 1)
+    if (choice == 3)
         return "important";
-    if (choice == 1)
+    if (choice == 4)
         return "work";
-    if (choice == 1)
+    if (choice == 5)
         return "spam";
     return "";
 }
@@ -711,7 +711,7 @@ void choiceMailToRead(string userMail)
     if (mailType == "")
         return;
     vector<mailStatus> ms = readStatus(userMail, mailType);
-    cout << "Day la danh sach mail trong folder Inbox\n";
+    cout << "Day la danh sach mail trong folder " << mailType << endl;
     vector<vector<string>> mp = printMailBox(ms, mailType, userMail);
 
     int choice = 0;
@@ -751,6 +751,7 @@ string getMailTypeFromSubject(string header)
 
 string getMailType(string header, string content)
 {
+    // cout << "Content: " << content << endl;
     string sender = getMailTypeFromSender(header);
     if (sender == "sep@hcmus.vn")
         return "project";
