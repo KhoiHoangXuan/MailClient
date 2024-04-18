@@ -31,9 +31,9 @@ struct mailContent
     string subject;
     string content;
     // Them file
-    string fileName;
-    string filePath;
-    string fileData;
+    vector<string> fileName;
+    vector<string> filePath;
+    vector<string> fileData;
 };
 
 struct config
@@ -180,33 +180,54 @@ mailContent writeMail(config con)
     {
         do
         {
+            string tmp;
             // string fileName;
             cout << "Nhap ten file: ";
-            a.fileName = getString();
+            // a.fileName = getString();
+            tmp = getString();
+            a.fileName.push_back(tmp);
             // cin.ignore();
+            string tmp1;
             cout << "Nhap duong dan cua file: ";
-            a.filePath = getString();
+            // a.filePath = getString();
+            tmp1 = getString();
+            a.filePath.push_back(tmp1);
             // cin.ignore();
 
-            if (getFileSize(a.filePath) > 3000000)
+            // Check file size
+            if (getFileSize(tmp1) > 3000000)
             {
                 cout << "File > 3MB. Hay chon file khac\n";
             }
-            else
+
+            int more = 0;
+            cout << "Ban co muon gui them file (1. Co | 0. Khong): ";
+            cin >> more;
+            cin.ignore();
+            if (more != 1)
                 break;
+            // else
+            //     break;
         } while (1);
         
-        // Check file size
-        fstream file;
-        file.open(a.filePath, ios::in);
-        while (!file.eof())
+
+        for (int i = 0; i < a.fileName.size(); i++)
         {
-            string tmp;
-            getline(file, tmp);
-            a.fileData += tmp + '\n';
+            fstream file;
+            file.open(a.filePath[i], ios::in);
+            string d;
+            while (!file.eof())
+            {
+                string tmp;
+                getline(file, tmp);
+                d += tmp + '\n';
+            }
+            d += "-----";
+            file.close();
+            cout << "My File\n" << d << endl;
+            a.fileData.push_back(d);
         }
-        a.fileData += "-----";
-        file.close();
+
         // cout << "Data: \n";
         // cout << a.fileData << endl;
     }
@@ -283,10 +304,13 @@ bool sendData(mailContent a, int client_fd)
     dataa += a.content + "\r\n\r\n";
 
     // File attachment part
-    if (a.fileName != "")
+    for (int i = 0; i < a.fileName.size(); i++)
     {
-        dataa += a.fileName + "\r\n";
-        dataa += a.fileData + "\r\n\r\n";
+        if (a.fileName[i] != "")
+        {
+            dataa += a.fileName[i] + "\r\n";
+            dataa += a.fileData[i] + "\r\n\r\n";
+        }
     }
 
 
@@ -427,8 +451,8 @@ struct mailParts
 {
     string header;
     string content;
-    string fileName;
-    string filePath;
+    vector<string> fileName;
+    vector<string> filePath;
 };
 
 vector<string> readFileAttach(string a)
@@ -454,7 +478,7 @@ void writeFileAttach(string fileName, string data, string mailAccount)
 {
     fstream file;
     file.open(mailAccount + "/files/" + fileName, ios::out);
-    file << data;
+    file << data.substr(0, data.size() - 5);
     file.close();
 }
 
@@ -464,15 +488,18 @@ void writeMailToFolder(mailParts mp, string mailAccount, string idMail, string m
     fstream file;
     file.open(mailAccount + "/" + mailType + "/" + idMail + ".txt", ios::out);
     file << mp.header << "\r\n---\r\n" << mp.content << "\r\n";
-    if (mp.fileName != "")
+    for (int i = 0; i < mp.fileName.size(); i++)
     {
-        string tmp = " is attach";
-        string tmp2 = mp.fileName.insert(mp.fileName.length() - 1, tmp);
-        // cout << "aaaaaaaaaaaaaaaaaaaaaaaa " << tmp2 << endl;
-        mp.fileName = tmp2;
-        file << "\r\n";
+        if (mp.fileName[i] != "" || mp.fileName[i] != "-----")
+        {
+            string tmp = " is attach";
+            string tmp2 = mp.fileName[i].insert(mp.fileName[i].length() - 1, tmp);
+            // cout << "aaaaaaaaaaaaaaaaaaaaaaaa " << tmp2 << endl;
+            mp.fileName[i] = tmp2;
+            file << "\r\n";
+        }
+        file << mp.fileName[i] << "\r\n" << ".\r\n";
     }
-    file << mp.fileName << "\r\n" << ".\r\n";
     file.close();
 
     fstream file2;
@@ -491,11 +518,15 @@ mailParts readDataPop3FromMail(vector<string> parts, string mailAccount)
 
     if (parts.size() > 2)
     {
-        // cout << "HAHAHAHAHA " << parts[2] << endl;
-        vector<string> v = readFileAttach(parts[2]);
-        mp.fileName = v[0];
-        writeFileAttach(v[0], v[1], mailAccount);
-        mp.filePath = mailAccount + "/files/" + mp.fileName;
+        for (int i = 2; i < parts.size(); i ++)
+        {
+            // cout << "HAHAHAHAHA " << parts[2] << endl;
+            vector<string> v = readFileAttach(parts[i]);
+            mp.fileName.push_back(v[0]);
+            if (v[0] != "-----")
+                writeFileAttach(v[0], v[1], mailAccount);
+            mp.filePath.push_back(mailAccount + "/files/" + v[0]);
+        }
     }
     
     return mp;
@@ -885,6 +916,7 @@ void pop3(config con)
             userMails.push_back(newMailID[i]);
             // cout << "Mail i: " << newMailID[i] << endl;
             // cout << "Start =============\n";
+
 
             vector<string> parts = readDataPOP3(buffer);
             // cout << "Mid ===============\n";
