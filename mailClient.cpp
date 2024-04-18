@@ -125,6 +125,20 @@ string serverReplyStr(int client_fd)
     return rep;
 }
 
+vector<string> getReceivers(string recvs)
+{
+    vector<string> recvList;
+    string tmp;
+    stringstream ss(recvs);
+    while(getline(ss, tmp, ','))
+    {
+        recvList.push_back(tmp);
+    }
+    // getline(ss, tmp);
+    // recvList.push_back(tmp);
+    return recvList;
+}
+
 string getString()
 {
     string a;
@@ -245,28 +259,40 @@ bool sendInitData(mailContent a, int client_fd)
     if (status == 0)
         return 0;
 
-    sendMsg = "RCPT TO: <" + a.to + ">\r\n";
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-    status = serverReply(client_fd);
-    if (status == 0)
-        return 0;
-
-    if (a.cc != "")
+    vector<string> toRecvs = getReceivers(a.to);
+    for (int i = 0; i < toRecvs.size(); i++)
     {
-        sendMsg = "RCPT TO: <" + a.cc + ">\r\n";
+        sendMsg = "RCPT TO: <" + toRecvs[i] + ">\r\n";
         send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
         status = serverReply(client_fd);
         if (status == 0)
             return 0;
     }
 
+    if (a.cc != "")
+    {
+        vector<string> ccRecvs = getReceivers(a.cc);
+        for (int i = 0; i < ccRecvs.size(); i++)
+        {
+            sendMsg = "RCPT TO: <" + ccRecvs[i] + ">\r\n";
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+            status = serverReply(client_fd);
+            if (status == 0)
+                return 0;
+        }
+    }
+
     if (a.bcc != "")
     {
-        sendMsg = "RCPT TO: <" + a.bcc + ">\r\n";
-        send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-        status = serverReply(client_fd);
-        if (status == 0)
-            return 0;
+        vector<string> bccRecvs = getReceivers(a.bcc);
+        for (int i = 0; i < bccRecvs.size(); i++)
+        {
+            sendMsg = "RCPT TO: <" + bccRecvs[i] + ">\r\n";
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+            status = serverReply(client_fd);
+            if (status == 0)
+                return 0;
+        }
     }
 
     return 1;
@@ -971,10 +997,14 @@ int main()
         {
             pop3(con);
         }
-        // else if (choice == 3)
-        // {
-        //     // cout << getFileSize("./config.txt");
-        // }
+        else if (choice == 3)
+        {
+            vector<string> a = getReceivers("a@hcmus.vn");
+            for (int i = 0; i < a.size(); i++)
+            {
+                cout << a[i] << endl;
+            }
+        }
     }
     while (choice != 0);
 }
