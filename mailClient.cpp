@@ -10,9 +10,6 @@
 #include <sstream>
 #include <ctime>
 #include <fstream>
-// #include <mimetic/mimetic.h>
-// #include <mimetic/mimeentity.h>
-// #include <mimetic/utils.h>
 #include <filesystem>
 #include <chrono>
 #include <thread>
@@ -22,7 +19,6 @@
 
 using namespace std;
 using namespace filesystem;
-// using namespace mimetic;
 
 struct mailContent
 {
@@ -32,7 +28,6 @@ struct mailContent
     string bcc;
     string subject;
     string content;
-    // Them file
     vector<string> fileName;
     vector<string> filePath;
     vector<string> fileData;
@@ -90,15 +85,6 @@ bool serverReply(int client_fd)
         cout << "Fail to recv from server\n";
         return 0;
     }
-    // else
-    // {
-    //     cout << "Server reply: ";
-    //     for (int i = 0; i < valRead; i++)
-    //     {
-    //         cout << buffer[i];
-    //     }
-    //     cout << endl;
-    // }
     memset(buffer, 0, sizeof(buffer));
     return 1;
 }
@@ -115,13 +101,10 @@ string serverReplyStr(int client_fd)
     }
     else
     {
-        // cout << "Server reply: ";
         for (int i = 0; i < valRead; i++)
         {
-            // cout << buffer[i];
             rep += buffer[i];
         }
-        // cout << endl;
     }
     memset(buffer, 0, sizeof(buffer));
     return rep;
@@ -136,8 +119,6 @@ vector<string> getReceivers(string recvs)
     {
         recvList.push_back(tmp);
     }
-    // getline(ss, tmp);
-    // recvList.push_back(tmp);
     return recvList;
 }
 
@@ -171,7 +152,6 @@ mailContent writeMail(config con)
 {
     mailContent a;
     a.from = con.uname; // Doc file config
-    // cin.ignore();
     cout << "Day la thong tin soan mail (nhan Enter neu khong muon nhap gi hoac muon ket thuc viec nhap)\n";
     cin.ignore();
     cout << "To: ";
@@ -186,10 +166,7 @@ mailContent writeMail(config con)
     a.content = getString();
     // Gui kem file
     string fileChoice;
-    // cin.ignore();
     cout << "Ban co muon dinh kem file khong (1. Co | 0. Khong): \n";
-    // getline(cin, fileChoice);
-    // cin.ignore();
     cin >> fileChoice;
     cin.ignore();
     if (fileChoice == "1")
@@ -197,18 +174,13 @@ mailContent writeMail(config con)
         do
         {
             string tmp;
-            // string fileName;
             cout << "Nhap ten file: ";
-            // a.fileName = getString();
             tmp = getString();
             a.fileName.push_back(tmp);
-            // cin.ignore();
             string tmp1;
             cout << "Nhap duong dan cua file: ";
-            // a.filePath = getString();
             tmp1 = getString();
             a.filePath.push_back(tmp1);
-            // cin.ignore();
 
             // Check file size
             if (getFileSize(tmp1) > 3000000)
@@ -222,8 +194,6 @@ mailContent writeMail(config con)
             cin.ignore();
             if (more != 1)
                 break;
-            // else
-            //     break;
         } while (1);
         
 
@@ -243,9 +213,6 @@ mailContent writeMail(config con)
             cout << "My File\n" << d << endl;
             a.fileData.push_back(d);
         }
-
-        // cout << "Data: \n";
-        // cout << a.fileData << endl;
     }
     return a;
 }
@@ -324,8 +291,6 @@ bool sendData(mailContent a, int client_fd)
     dataa += "To: <" + a.to + ">\r\n";
     if (a.cc != "")
         dataa += "CC: <" + a.cc + ">\r\n";
-    // if (a.bcc != "")
-    //     dataa += "BCC: <" + a.bcc + ">\r\n";
     dataa += "Subject: " + a.subject + "\r\n\r\n";
 
     // Content part
@@ -367,7 +332,6 @@ void smtp(config con)
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(con.smtp);
     serv_addr.sin_addr.s_addr = inet_addr(con.mailServer.c_str());
-    // cout << con.mailServer.c_str() << endl;
 
     bool status = 1;
 
@@ -406,7 +370,6 @@ void smtp(config con)
         cout << "Da gui thu\n";
     else
         cout << "Gui that bai\n";
-    // sendDataWithMIME(a, client_fd);
 
     // =======================================
     // Quit
@@ -438,38 +401,31 @@ vector<listMail> readLIST(string a)
     {
         listMail l;
         getline(ss, tmp);
-        // cout << tmp << endl;
         if (tmp == ".\r")
         {
-            // cout << "Vao r\n";
             break;
         }
         stringstream sss(tmp);
         getline(sss, tmp, ' ');
         l.stt = tmp;
         getline(sss, tmp);
-        // cout << tmp << endl;
         l.bytes = stoi(tmp);
         li.push_back(l);
     }
-    // cout << "Ra roi\n";
     return li;
 }
 
 vector<string> readDataPOP3(string a)
 {
-    // cout << a << endl;
     vector<string> parts;
     int start = 0;
     while (1)
     {
         int pos = a.find("\r\n\r\n", start);
         string tmp1 = a.substr(start, pos - start);
-        // cout << tmp1 << endl << "==============\n";
         if (tmp1[0] == '.')
             break;
         parts.push_back(tmp1);
-        // string tmp = a.substr(pos - start + 4);
         start = pos + 4;
     }
     return parts;
@@ -486,14 +442,6 @@ struct mailParts
 vector<string> readFileAttach(string a)
 {
     vector<string> v;
-    // stringstream ss(a);
-    // string tmp;
-
-    // getline(ss, tmp);
-    // v.push_back(tmp);
-
-    // tmp = ss.str();
-    // v.push_back(tmp);
 
     int pos = a.find("\n");
     v.push_back(a.substr(0, pos));
@@ -512,17 +460,16 @@ void writeFileAttach(string fileName, string data, string mailAccount)
 
 void writeMailToFolder(mailParts mp, string mailAccount, string idMail, string mailType)
 {
-    // cout << mp.fileName << endl;
     fstream file;
     file.open(mailAccount + "/" + mailType + "/" + idMail + ".txt", ios::out);
     file << mp.header << "\r\n---\r\n" << mp.content << "\r\n";
+
     for (int i = 0; i < mp.fileName.size(); i++)
     {
         if (mp.fileName[i] != "" || mp.fileName[i] != "-----")
         {
             string tmp = " is attach";
             string tmp2 = mp.fileName[i].insert(mp.fileName[i].length() - 1, tmp);
-            // cout << "aaaaaaaaaaaaaaaaaaaaaaaa " << tmp2 << endl;
             mp.fileName[i] = tmp2;
             file << "\r\n";
         }
@@ -614,7 +561,7 @@ vector<mailStatus> readStatus(string mailAccount, string mailType)
         mailStatus mss;
         getline(file, mss.id);
         getline(file, mss.status);
-        // cout << mss.id << " --- " << mss.status << endl;
+
         if (mss.id != "")
             ms.push_back(mss);
     }
@@ -693,19 +640,14 @@ vector<string> getMailData(string mailAccount, string type, string id)
         dataa += tmp + "\r\n";
     }
     file.close();
-    // cout << dataa << endl;
 
     string tmp;
     int pos = dataa.find("\r\n");
     tmp = dataa.substr(pos + 2);
-    // cout << "---\n";
-    // cout << tmp << endl;
 
     int pos2 = tmp.find("---");
     p.push_back(tmp.substr(0, pos2));
     p.push_back(tmp.substr(0, tmp.size() - 5));
-    // cout << "+++++++++++=\n";
-    // cout << p[0] << "\nhahaha\n" << p[1] << endl;
     return p;
 }
 
@@ -810,7 +752,6 @@ string getMailTypeFromSubject(string header)
 
 string getMailType(string header, string content)
 {
-    // cout << "Content: " << content << endl;
     string sender = getMailTypeFromSender(header);
     if (sender == "sep@hcmus.vn")
         return "project";
@@ -877,10 +818,8 @@ void pop3(config con)
 
             // =======================================
             // Send User info
-            // cout << "Going here\n";
             sendMsg = "USER " + mailAccount + "\r\n"; // Read from configure file
             send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-            // cout << "End here\n";
             status = serverReply(client_fd);
             if (status == 0)
                 return;
@@ -909,11 +848,9 @@ void pop3(config con)
             string rep = serverReplyStr(client_fd);
             vector<listMail> li = readLIST(rep);
 
-            // Phai di so voi cac mail da nhan roi moi chay RETR
-
             // =======================================
             // Send UIDL
-            sendMsg = "UIDL\r\n"; // Read from configure file
+            sendMsg = "UIDL\r\n"; 
             send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
             status = serverReply(client_fd);
@@ -927,14 +864,12 @@ void pop3(config con)
 
             for (int i = 0; i < newMailID.size(); i++)
             {
-                // cout << "Mail thu: " << newMailID[i] << endl;
-                sendMsg = "RETR " + newMailID[i] + "\r\n"; // Read from configure file
+                sendMsg = "RETR " + newMailID[i] + "\r\n";
                 send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
 
                 // =======================================
                 // Receive new mail
                 char buffer[bufferSize];
-                // memset(buffer, 0, sizeof(buffer));
                 int valRead;
 
                 if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
@@ -947,33 +882,16 @@ void pop3(config con)
                 else
                 {
                     userMails.push_back(newMailID[i]);
-                    // cout << "Mail i: " << newMailID[i] << endl;
-                    // cout << "Start =============\n";
-
-
                     vector<string> parts = readDataPOP3(buffer);
-                    // cout << "Mid ===============\n";
-                    // for (int i = 0; i < parts.size(); i++)
-                    // {
-                    //     cout << parts[i] << endl;
-                    //     cout << "++++++++++++++\n";
-                    // }
 
-                    // cout << "Im here 1\n";
                     mailParts mp = readDataPop3FromMail(parts, mailAccount);
 
                     string mailType = getMailType(mp.header, mp.content);
-                    // cout << "Your mail in " << mailType << endl;
 
-                    // cout << "Im here 2\n";
                     writeMailToFolder(mp, mailAccount, newMailID[i], mailType);
                 }
             }
-            // cout << "Here\n";
-            // for (int i = 0; i < userMails.size(); i++)
-            // {
-            //     cout << userMails[i] << endl;
-            // }
+
             writeUserMails(mailAccount, userMails);
             sendMsg = "QUIT\r\n";
             send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
@@ -983,7 +901,6 @@ void pop3(config con)
         }
     });
 
-    // cout << "Im here 3\n";
     choiceMailToRead(mailAccount);
     close(client_fd);
     endThread = 1;
@@ -1011,14 +928,6 @@ int main()
         else if (choice == 2)
         {
             pop3(con);
-        }
-        else if (choice == 3)
-        {
-            vector<string> a = getReceivers("a@hcmus.vn");
-            for (int i = 0; i < a.size(); i++)
-            {
-                cout << a[i] << endl;
-            }
         }
     }
     while (choice != 0);
