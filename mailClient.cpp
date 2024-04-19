@@ -14,6 +14,8 @@
 // #include <mimetic/mimeentity.h>
 // #include <mimetic/utils.h>
 #include <filesystem>
+#include <chrono>
+#include <thread>
 
 
 #define bufferSize 1024
@@ -830,149 +832,162 @@ void pop3(config con)
 {
     string mailAccount = "u0@hcmus.vn";
     int client_fd;
-    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        cout << "Create socket failed \n";
-        return;
-    }
-
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(con.pop3);
-    serv_addr.sin_addr.s_addr = inet_addr(con.mailServer.c_str());
+    bool endThread = 0;
 
     // Create mail box for user
     createMailBoxFolder(mailAccount);
 
-    bool status = 1;
-    // =======================================
-    if (connect(client_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-    {
-        cout << "Connection failed \n";
-        close(client_fd);
-        return;
-    }
-    else
-    {
-        status = serverReply(client_fd);
-        if (status == 0)
-            return;
-    }
-
-    // =======================================
-    // Send CAPA
-    string sendMsg = "CAPA\r\n";
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
-
-    // =======================================
-    // Send User info
-    // cout << "Going here\n";
-    sendMsg = "USER " + mailAccount + "\r\n"; // Read from configure file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-    // cout << "End here\n";
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
-
-    // =======================================
-    // Send User password
-    sendMsg = "PASS 333\r\n"; // Read from configure file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
-
-    // =======================================
-    // Send STAT and LIST; DOC CHO NAY CAN THAN
-    sendMsg = "STAT\r\n"; // Read from config file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
-
-    sendMsg = "LIST\r\n"; // Read from configure file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-    string rep = serverReplyStr(client_fd);
-    vector<listMail> li = readLIST(rep);
-
-    // Phai di so voi cac mail da nhan roi moi chay RETR
-
-    // =======================================
-    // Send UIDL
-    sendMsg = "UIDL\r\n"; // Read from configure file
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-    status = serverReply(client_fd);
-    if (status == 0)
-        return;
-
-    // =======================================
-    // Send Request to get mail
-    vector<string> userMails = readUserMails(mailAccount);
-    vector<string> newMailID = getNewMailID(userMails, li);
-
-    for (int i = 0; i < newMailID.size(); i++)
-    {
-        // cout << "Mail thu: " << newMailID[i] << endl;
-        sendMsg = "RETR " + newMailID[i] + "\r\n"; // Read from configure file
-        send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-
-        // =======================================
-        // Receive new mail
-        char buffer[bufferSize];
-        // memset(buffer, 0, sizeof(buffer));
-        int valRead;
-
-        if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
+    thread t([&](){
+        while (!endThread)
         {
-            cout << "Fail to recv from server\n";
+            if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            {
+                cout << "Create socket failed \n";
+                return;
+            }
+
+            struct sockaddr_in serv_addr;
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(con.pop3);
+            serv_addr.sin_addr.s_addr = inet_addr(con.mailServer.c_str());
+
+            bool status = 1;
+            // =======================================
+            if (connect(client_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+            {
+                cout << "Connection failed \n";
+                close(client_fd);
+                return;
+            }
+            else
+            {
+                status = serverReply(client_fd);
+                if (status == 0)
+                    return;
+            }
+
+            // =======================================
+            // Send CAPA
+            string sendMsg = "CAPA\r\n";
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+            status = serverReply(client_fd);
+            if (status == 0)
+                return;
+
+            // =======================================
+            // Send User info
+            // cout << "Going here\n";
+            sendMsg = "USER " + mailAccount + "\r\n"; // Read from configure file
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+            // cout << "End here\n";
+            status = serverReply(client_fd);
+            if (status == 0)
+                return;
+
+            // =======================================
+            // Send User password
+            sendMsg = "PASS 333\r\n"; // Read from configure file
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+            status = serverReply(client_fd);
+            if (status == 0)
+                return;
+
+            // =======================================
+            // Send STAT and LIST; DOC CHO NAY CAN THAN
+            sendMsg = "STAT\r\n"; // Read from config file
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+            status = serverReply(client_fd);
+            if (status == 0)
+                return;
+
+            sendMsg = "LIST\r\n"; // Read from configure file
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+            string rep = serverReplyStr(client_fd);
+            vector<listMail> li = readLIST(rep);
+
+            // Phai di so voi cac mail da nhan roi moi chay RETR
+
+            // =======================================
+            // Send UIDL
+            sendMsg = "UIDL\r\n"; // Read from configure file
+            send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+            status = serverReply(client_fd);
+            if (status == 0)
+                return;
+
+            // =======================================
+            // Send Request to get mail
+            vector<string> userMails = readUserMails(mailAccount);
+            vector<string> newMailID = getNewMailID(userMails, li);
+
+            for (int i = 0; i < newMailID.size(); i++)
+            {
+                // cout << "Mail thu: " << newMailID[i] << endl;
+                sendMsg = "RETR " + newMailID[i] + "\r\n"; // Read from configure file
+                send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+
+                // =======================================
+                // Receive new mail
+                char buffer[bufferSize];
+                // memset(buffer, 0, sizeof(buffer));
+                int valRead;
+
+                if ((valRead = recv(client_fd, buffer, bufferSize, 0)) < 0)
+                {
+                    cout << "Fail to recv from server\n";
+                    sendMsg = "QUIT\r\n";
+                    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+                    return;
+                }
+                else
+                {
+                    userMails.push_back(newMailID[i]);
+                    // cout << "Mail i: " << newMailID[i] << endl;
+                    // cout << "Start =============\n";
+
+
+                    vector<string> parts = readDataPOP3(buffer);
+                    // cout << "Mid ===============\n";
+                    // for (int i = 0; i < parts.size(); i++)
+                    // {
+                    //     cout << parts[i] << endl;
+                    //     cout << "++++++++++++++\n";
+                    // }
+
+                    // cout << "Im here 1\n";
+                    mailParts mp = readDataPop3FromMail(parts, mailAccount);
+
+                    string mailType = getMailType(mp.header, mp.content);
+                    // cout << "Your mail in " << mailType << endl;
+
+                    // cout << "Im here 2\n";
+                    writeMailToFolder(mp, mailAccount, newMailID[i], mailType);
+                }
+            }
+            // cout << "Here\n";
+            // for (int i = 0; i < userMails.size(); i++)
+            // {
+            //     cout << userMails[i] << endl;
+            // }
+            writeUserMails(mailAccount, userMails);
             sendMsg = "QUIT\r\n";
             send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
-            return;
+            close(client_fd);
+
+            this_thread::sleep_for(chrono::seconds(con.autoLoad));
         }
-        else
-        {
-            userMails.push_back(newMailID[i]);
-            // cout << "Mail i: " << newMailID[i] << endl;
-            // cout << "Start =============\n";
-
-
-            vector<string> parts = readDataPOP3(buffer);
-            // cout << "Mid ===============\n";
-            // for (int i = 0; i < parts.size(); i++)
-            // {
-            //     cout << parts[i] << endl;
-            //     cout << "++++++++++++++\n";
-            // }
-
-            // cout << "Im here 1\n";
-            mailParts mp = readDataPop3FromMail(parts, mailAccount);
-
-            string mailType = getMailType(mp.header, mp.content);
-            // cout << "Your mail in " << mailType << endl;
-
-            // cout << "Im here 2\n";
-            writeMailToFolder(mp, mailAccount, newMailID[i], mailType);
-        }
-    }
-    // cout << "Here\n";
-    // for (int i = 0; i < userMails.size(); i++)
-    // {
-    //     cout << userMails[i] << endl;
-    // }
-    writeUserMails(mailAccount, userMails);
-    sendMsg = "QUIT\r\n";
-    send(client_fd, sendMsg.c_str(), sendMsg.length(), 0);
+    });
 
     // cout << "Im here 3\n";
     choiceMailToRead(mailAccount);
+    close(client_fd);
+    endThread = 1;
+    t.join();
 }
 
 int main()
