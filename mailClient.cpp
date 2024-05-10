@@ -176,17 +176,18 @@ mailContent writeMail(config con)
             string tmp;
             cout << "Nhap ten file: ";
             tmp = getString();
-            a.fileName.push_back(tmp);
             string tmp1;
             cout << "Nhap duong dan cua file: ";
             tmp1 = getString();
-            a.filePath.push_back(tmp1);
 
             // Check file size
             if (getFileSize(tmp1) > 3000000)
             {
-                cout << "File > 3MB. Hay chon file khac\n";
+                cout << "File > 3MB\n";
+                break;
             }
+            a.fileName.push_back(tmp); 
+            a.filePath.push_back(tmp1);
 
             int more = 0;
             cout << "Ban co muon gui them file (1. Co | 0. Khong): ";
@@ -771,7 +772,7 @@ string getMailType(string header, string content)
 
 void pop3(config con)
 {
-    string mailAccount = "u0@hcmus.vn";
+    string mailAccount = "t0@hcmus.vn";
     int client_fd;
     bool endThread = 0;
 
